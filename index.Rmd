@@ -16,9 +16,6 @@ library(readxl)
 library(httr)
 library(rvest)
 library(magrittr)
-library(rmarkdown)
-library(plotly)
-
 
 # historic de dades font europea
 # from https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide 
@@ -182,8 +179,8 @@ mortsdia <- covid %>%
 ### Última actualització: `r as.character(max(covid$DateRep[covid$Region %in% paisos]))`
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, out.width="100%"}
-ggplotly(casosdia)
-ggplotly(mortsdia)
+casosdia
+mortsdia
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
