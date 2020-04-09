@@ -1,0 +1,198 @@
+---
+title: "COVID-19 Evolució per països: Estat Espanyol"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(StandardizeText)
+library(readxl)
+library(httr)
+library(rvest)
+library(magrittr)
+library(rmarkdown)
+
+
+# historic de dades font europea
+# from https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide 
+#url <- paste("https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-disbtribution-worldwide-",format(Sys.time(), "%Y-%m-%d"), ".xlsx", sep = "")
+#GET(url, authenticate(":", ":", type="ntlm"), write_disk(tf <- tempfile(fileext = ".xlsx")))
+#covidtf <- read_excel(tf)
+
+covid_hist <- read.csv("https://opendata.ecdc.europa.eu/covid19/casedistribution/csv",as.is = TRUE)
+colnames(covid_hist) <- Hmisc::capitalize(colnames(covid_hist))
+
+covid_hist <- covid_hist %>% 
+  rename(Region = CountriesAndTerritories) %>% 
+  mutate(DateRep = as.Date(DateRep,format="%d/%m/%Y")) %>% 
+  arrange(DateRep) %>% 
+  split(.,.$Region) %>%
+  map(~mutate(.,Cases_csum = cumsum(Cases),
+              Deaths_csum = cumsum(Deaths))) %>% 
+  bind_rows() %>% 
+  mutate(DateRep = DateRep-1,
+         Region = standardize.countrynames(str_replace_all(Region,'_',' '), suggest = 'auto',print.changes = FALSE, verbose = FALSE))
+  
+
+
+# dades actual font https://www.youtube.com/watch?v=qgylp3Td1Bw&feature=youtu.be
+covid_today <- read_html('https://docs.google.com/spreadsheets/d/e/2PACX-1vQuDj0R6K85sdtI8I-Tc7RCx8CnIxKUQue0TCUdrFOKDw9G3JRtGhl64laDd3apApEvIJTdPFJ9fEUL/pubhtml?gid=0&single=true') %>% 
+  html_table() %>% 
+  .[[1]] %>% 
+  as_tibble(.name_repair = 'unique') %>% 
+  .[,3:5] %>% 
+  .[-1,] %>% 
+  set_colnames(c('Region','Cases_csum','Deaths_csum')) %>% 
+  mutate(Region = standardize.countrynames(Region,suggest = 'auto', print.changes = FALSE),
+         DateRep = as.Date(Sys.Date()),
+         Day = day(DateRep),
+         Month = month(DateRep),
+         Year = year(DateRep),
+         Cases = NA,
+         Deaths = NA) %>% 
+  left_join(covid_hist %>% 
+              select("Region","GeoId","CountryterritoryCode","PopData2018","Cases_csum","Deaths_csum") %>% 
+              group_by(Region,GeoId,CountryterritoryCode,PopData2018) %>% 
+              summarise(tmp_Cases_csum = max(Cases_csum),
+                        tmp_Deaths_csum = max(Deaths_csum))) %>% 
+  mutate(Cases = as.numeric(Cases_csum)-tmp_Cases_csum,
+         Deaths = as.numeric(Deaths_csum)-tmp_Deaths_csum) %>% 
+  select(-starts_with('tmp_'))
+
+# merge de lhistoric amb avui i afegim dates relatives
+covid <- rbind(covid_hist,covid_today) %>% 
+  mutate(Cases = as.numeric(Cases),
+         Deaths = as.numeric(Deaths),
+         Cases_csum = as.numeric(Cases_csum),
+         Deaths_csum = as.numeric(Deaths_csum)) %>% 
+  filter(Cases_csum > 100) %>% # dia 1 és el 100è cas
+  split(.,.$Region) %>% 
+  map(~mutate(.,Date_rel = 1:length(Cases))) %>% 
+  bind_rows()
+
+# increments percentuals
+covid$cases_per_inc <- (covid$Cases*100)/covid$Cases_csum
+covid$deaths_per_inc <- (covid$Deaths*100)/covid$Deaths_csum
+
+## taxa creixement
+covid <- covid %>%
+  arrange(DateRep) %>%
+  split(.,.$Region) %>%
+  map(~mutate(.,Taxa_creixement_morts = Deaths/lag(Deaths),
+              Taxa_creixement_cases = Cases/lag(Cases))) %>%
+  bind_rows()
+
+# pais
+paisos <- c('Spain')
+
+## quadre general
+
+taxa_creixement_diaria_casos <- covid %>% 
+  filter(Region %in% paisos) %>%
+  filter(Taxa_creixement_cases < 20) %>% # hi ha un error a les dades d'Itàlia
+  ggplot(aes(Date_rel)) +
+  geom_point(aes(y = Taxa_creixement_cases, colour = ''), size=0.7) +
+  geom_line(aes(y = Taxa_creixement_cases, colour = ''),size=0.5) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Creixement infectats diaris") +
+  theme_bw() +
+  theme(legend.title =element_blank(),
+        text = element_text(size=14), 
+        legend.position = 'none') +
+  geom_hline(yintercept=1, linetype="dashed", 
+             color = "black", size=0.3)
+
+taxa_mortalitat <- covid %>%
+  mutate(taxa_mortal = 100*Deaths_csum/Cases_csum) %>% 
+  filter(Region %in% paisos) %>%
+  ggplot(aes(Date_rel,taxa_mortal, color = Region)) +
+  geom_point(size=0.7) +
+  geom_line(size=0.5) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Taxa mortalitat") +
+  theme_bw() +
+  theme(legend.title =element_blank(),
+        text = element_text(size=14), 
+        legend.position = 'none') +
+  geom_hline(yintercept=1.4, linetype="dashed", 
+             color = "black", size=0.3)
+
+casos <- covid %>% 
+  filter(Region %in% paisos) %>%
+  ggplot(aes(Date_rel,Cases_csum, color = Region)) +
+  geom_point(size=0.7) + 
+  geom_line(size=0.5) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Casos totals") +
+  theme_bw() +
+  theme(legend.title =element_blank(),
+        text = element_text(size=14), 
+        legend.position = 'none')
+
+casosdia <- covid %>% 
+  filter(Region %in% paisos) %>%
+  ggplot(aes(Date_rel,Cases, color = Region)) +
+  geom_point(size=0.7) + 
+  geom_line(size=0.5) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Casos dia") +
+  theme_bw() +
+  theme(legend.title =element_blank(),
+        text = element_text(size=14), 
+        legend.position = 'none')
+
+morts <- covid %>% 
+  filter(Region %in% paisos) %>%
+  ggplot(aes(Date_rel,Deaths_csum, color = Region)) +
+  geom_point(size=0.7) + 
+  geom_line(size=0.5) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Morts totals") +
+  theme_bw() +
+  theme(legend.title =element_blank(),
+        text = element_text(size=14), 
+        legend.position = 'none')
+
+mortsdia <- covid %>% 
+  filter(Region %in% paisos) %>%
+  ggplot(aes(Date_rel,Deaths, color = Region)) +
+  geom_point(size=0.7) + 
+  geom_line(size=0.5) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Morts dia") +
+  theme_bw() +
+  theme(legend.title =element_blank(),
+        text = element_text(size=14), 
+        legend.position = 'none')
+```
+
+### Última actualització: `r as.character(max(covid$DateRep[covid$Region %in% paisos]))`
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
+casos
+casosdia
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
+morts
+mortsdia
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
+taxa_mortalitat
+taxa_creixement_diaria_casos
+```
+
+Font: ECDC Europa & Others  |  @rogersanjaume
