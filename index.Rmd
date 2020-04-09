@@ -181,19 +181,20 @@ mortsdia <- covid %>%
 
 ### Última actualització: `r as.character(max(covid$DateRep[covid$Region %in% paisos]))`
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
-ggplotly(casos)
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, out.width="100%"}
 ggplotly(casosdia)
-```
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
-morts
-mortsdia
+ggplotly(mortsdia)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
 taxa_mortalitat
 taxa_creixement_diaria_casos
 ```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
+casos
+morts
+```
+
 
 Font: ECDC Europa & Others  |  @rogersanjaume
