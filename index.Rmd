@@ -17,6 +17,7 @@ library(httr)
 library(rvest)
 library(magrittr)
 library(rmarkdown)
+library(plotly)
 
 
 # historic de dades font europea
@@ -181,8 +182,8 @@ mortsdia <- covid %>%
 ### Última actualització: `r as.character(max(covid$DateRep[covid$Region %in% paisos]))`
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
-casos
-casosdia
+ggplotly(casos)
+ggplotly(casosdia)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.hold='hold', out.width="50%"}
