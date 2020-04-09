@@ -1,2 +1,2 @@
 library(rmarkdown)
-render("index.Rmd", md_document(variant = "markdown_github"))
+render("index.Rmd", "html_document")
