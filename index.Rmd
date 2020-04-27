@@ -35,7 +35,8 @@ covid_hist <- covid_hist %>%
               Deaths_csum = cumsum(Deaths))) %>% 
   bind_rows() %>% 
   mutate(DateRep = DateRep-1,
-         Region = standardize.countrynames(str_replace_all(Region,'_',' '), suggest = 'auto',print.changes = FALSE, verbose = FALSE))
+         Region = standardize.countrynames(str_replace_all(Region,'_',' '), suggest = 'auto',print.changes = FALSE, verbose = FALSE)) %>% 
+  select(-ContinentExp)
   
 
 
